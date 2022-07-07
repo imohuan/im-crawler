@@ -3,7 +3,7 @@ import { createPool } from "generic-pool";
 import IoRedis from "ioredis";
 import { resolve } from "path";
 
-import { UserPlugin } from "../core/index";
+import { UserPlugin } from "../typings";
 import { md5 } from "../helper";
 
 export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest, onDestroy }) => {

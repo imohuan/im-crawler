@@ -1,7 +1,7 @@
 import { resolve } from "path";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { FileFsPlugin, Spider } from "../src/index";
+import { Crawler, FileFsPlugin } from "../src/index";
 
 const dirname = resolve(process.cwd(), "datas");
 
@@ -10,10 +10,9 @@ const delay = (timeout: number) =>
 
 describe("插件测试", () => {
   it("本地文件缓存", async () => {
-    const spider = new Spider({ dirname, pages: [] });
-    spider.use(FileFsPlugin);
-
-    const result = await spider.get("https://www.bilibili.com/", {
+    const crawler = new Crawler({ dirname, pages: [] });
+    crawler.use(FileFsPlugin);
+    const result = await crawler.get("https://www.bilibili.com/", {
       request: { async: { show: true } },
       regexp: /https\:\/\/www\.bilibili\.com.+/,
       parsers: [

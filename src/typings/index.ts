@@ -7,8 +7,14 @@ import { setOption } from "@imohuan/log";
 import { AsyncElectronOption } from "./async";
 
 export * from "./async";
+export * from "./crawler";
+export { Emitter } from "mitt";
 
-export type DataParser<T = any> = HTMLSelectorOption<T> & JSONSelectorOption<T>;
+export type DataParser<T = any> = HTMLSelectorOption<T> &
+  JSONSelectorOption<T> & {
+    /** Spider 解析NextURL */
+    target?: boolean;
+  };
 
 export type HttpRequest = {
   /** 是否缓存 (插件使用) */
