@@ -1,5 +1,11 @@
 import { createHash } from "crypto";
 import { get, isArray, isFunction, isObject, isString } from "lodash-es";
+/**
+ * Url
+ */
+import { extname, resolve } from "path";
+
+import { getSuffixForDir } from "@imohuan/aria2c";
 
 /**
  * md5 加密
@@ -51,4 +57,34 @@ export function queryParser(query: string): any[] {
     const [name, value] = cur.split(":");
     return pre.concat([{ [name]: isString(value) ? parseInt(value) || value : value }]);
   }, [] as any);
+}
+
+/** 获取URL名称 */
+export function urlName(url: string, ext: string = ".cache") {
+  return md5(String(url), 10) + ext;
+}
+
+interface URLParser {
+  /** URL 地址 */
+  url: string;
+  /** 输出路径 */
+  dirname?: string;
+  /** 后缀 */
+  ext?: string;
+}
+
+/** URL 解析，获取后最和输出地址 */
+export function urlParser(option: URLParser) {
+  const { url, dirname, ext: _ext } = option;
+  const urlOption = new URL(url);
+  const ext = _ext ?? extname(urlOption.pathname);
+  const name = urlName(url, ext);
+  const category = getSuffixForDir(url, ext.startsWith(".") ? ext.slice(1) : ext);
+  const outFile = dirname ? resolve(dirname, name) : null;
+  const categoryOutFile = dirname ? resolve(dirname, category, name) : null;
+  return { ...urlOption, ext, category, outFile, name, categoryOutFile };
+}
+
+export function delay(timeout: number) {
+  return new Promise((_resolve) => setTimeout(() => _resolve(true), timeout));
 }

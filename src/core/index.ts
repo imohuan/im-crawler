@@ -26,6 +26,7 @@ import {
   Global,
   HttpRequest,
   MatchOption,
+  Page,
   PluginFunction,
   PluginOption,
   SpiderCache
@@ -177,12 +178,13 @@ export class Crawler<T> {
   /** 查询 匹配当前URL的配置 */
   protected getUrlMatchList = (url: string): MatchOption[] => {
     return this.option.pages
-      .map((m) =>
-        m.matches.map((m1) => {
+      .map((m) => {
+        const result = m.matches.map((m1) => {
           m1.request = defaultsDeep({}, m1.request, m.request);
-          return m1;
-        })
-      )
+          return defaultsDeep({ __parent: m, __page: m }, m1);
+        });
+        return result;
+      })
       .flat()
       .filter((f) => {
         const regexps: RegExp[] = isArray(f.regexp) ? f.regexp : ([f.regexp] as RegExp[]);
@@ -253,9 +255,9 @@ export class Crawler<T> {
         const callbacks: any[] = [];
         // 用于 onParserField 中获取 解析后的数据
         selector.on("files", (option) => {
-          const { keys, value, data } = option;
+          const { keys, value, option: itemOption } = option;
           // key value keys filterKeys data
-          if (keys.indexOf("target") && get(data, "target", false)) {
+          if (keys.indexOf("target") && get(itemOption, "target", false)) {
             let values = isArray(value) ? value : [value];
             values = values
               .filter((f) => f && isString(f))

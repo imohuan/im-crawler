@@ -1,9 +1,10 @@
 import { resolve } from "path";
 
-import { Spider, UserPlugin } from "../core/index";
 import { Setting } from "../helper/store";
+import { UserPlugin } from "../typings";
 
-export const StatusPlugin: UserPlugin = (crawler: Spider, { onInit, onPipeSpider }) => {
+export const StatusPlugin: UserPlugin = (crawler, { onInit, onPipeSpider }) => {
+  const list: any[] = [];
   const setting = new Setting({
     dirname: resolve(crawler.option.dirname, "tables")
   });
@@ -12,7 +13,7 @@ export const StatusPlugin: UserPlugin = (crawler: Spider, { onInit, onPipeSpider
     await setting.create();
   });
 
-  onPipeSpider(({ url, data }) => {
-    //
+  onPipeSpider(({ url, data, status }) => {
+    list.push({ url, data: data.result });
   });
 };

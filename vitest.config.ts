@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     deps: {
-      inline: ["@imohuan/log", "im-selector"]
+      inline: ["@imohuan/log", "im-selector", "@imohuan/aria2c"]
     }
   }
 });

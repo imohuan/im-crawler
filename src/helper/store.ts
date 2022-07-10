@@ -85,7 +85,13 @@ export class Store<T> {
     }
   }
 
-  public async batchInsert(name: string, dataList: Partial<T>[], chunkSize = 100) {
+  /**
+   * 批量插入数据
+   * @param name 表名称
+   * @param dataList 插入数据列表
+   * @param chunkSize 分段插入的分段值
+   */
+  public async batchInsert(name: string, dataList: Partial<T>[], chunkSize = 100): Promise<any> {
     return new Promise((resolve) => {
       this.sql
         .batchInsert(name, dataList as any, chunkSize)
@@ -94,6 +100,7 @@ export class Store<T> {
         })
         .catch((err) => {
           console.log("BatchInsert Error: ", err);
+          resolve(false);
         });
     });
   }
@@ -155,7 +162,8 @@ export class Store<T> {
     return await this.sql.raw(sql);
   }
 
-  public close() {
+  /** 关闭连接 */
+  public close(): Promise<boolean> {
     return new Promise((res) => {
       setTimeout(async () => {
         await this.sql.destroy();
@@ -164,9 +172,10 @@ export class Store<T> {
     });
   }
 
+  /** 销毁当前文件（注意：销毁后数据将丢失） */
   public async destroy() {
     await this.close();
-    await removeSync(this.filePath);
+    removeSync(this.filePath);
   }
 }
 

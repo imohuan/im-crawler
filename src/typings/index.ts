@@ -8,6 +8,7 @@ import { AsyncElectronOption } from "./async";
 
 export * from "./async";
 export * from "./crawler";
+export * from "./server";
 export { Emitter } from "mitt";
 
 export type DataParser<T = any> = HTMLSelectorOption<T> &
@@ -52,6 +53,10 @@ export interface Paging {
 }
 
 export type MatchOption = {
+  /** 匹配Page的名称 */
+  name?: string;
+  /** 匹配Page的介绍 */
+  description?: string;
   /** 匹配 URL 正则*/
   regexp?: RegExp | RegExp[];
   /** http请求配置 */

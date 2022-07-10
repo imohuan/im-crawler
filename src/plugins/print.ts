@@ -1,4 +1,4 @@
-import { UserPlugin } from "../core/index";
+import { UserPlugin } from "../typings/index";
 
 export const PrintPlugin: UserPlugin = (crawler, { onParserField }) => {
   onParserField(({ keys, value }, cb) => {

@@ -2,6 +2,7 @@ import { EmitterEvent, getSelector } from "im-selector";
 
 import { Crawler } from "../core";
 import { CrawlerOption, HttpRequest, MatchOption } from "./index";
+import { Page } from "../typings";
 
 export type Event = { [key: string]: (...args: any[]) => any };
 export type PluginOptionArgs<T extends Event> = {

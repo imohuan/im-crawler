@@ -4,7 +4,8 @@ import IoRedis from "ioredis";
 import { resolve } from "path";
 
 import { UserPlugin } from "../typings";
-import { md5 } from "../helper";
+import { md5, urlName } from "../helper";
+import { isString } from "lodash-es";
 
 export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest, onDestroy }) => {
   const redis = new IoRedis();
@@ -33,7 +34,7 @@ export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest
 export const FileFsPlugin: UserPlugin = (crawler, { onBeforeRequest, onAfterRequest }) => {
   const pool = createPool({ create: async () => [], destroy: async () => {} }, { max: 30 });
   const resolveFilePath = (url: any) =>
-    resolve(crawler.option.dirname, "html", `${md5(String(url), 10)}.html`);
+    resolve(crawler.option.dirname, "html", urlName(url, ".html"));
 
   onBeforeRequest(async (request) => {
     if (!request?.cache) return;
@@ -49,7 +50,10 @@ export const FileFsPlugin: UserPlugin = (crawler, { onBeforeRequest, onAfterRequ
     const filepath = resolveFilePath(request.url);
     pool.acquire().then(async (client) => {
       ensureFileSync(filepath);
-      writeFileSync(filepath, request.content!);
+      try {
+        if (!isString(request.content)) writeFileSync(filepath, JSON.stringify(request.content));
+        else writeFileSync(filepath, request.content!);
+      } catch {}
       pool.release(client);
     });
   });

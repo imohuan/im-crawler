@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { BaseCrawler } from "../src/index";
+import { Crawler } from "../src/index";
 
 const delay = (timeout: number) =>
   new Promise((_resolve) => setTimeout(() => _resolve(true), timeout));
 
 describe("爬虫", () => {
   it("基础配置", async () => {
-    const crawler = new BaseCrawler({
+    const crawler = new Crawler({
       max: 10,
       request: {},
       pages: [
@@ -85,7 +85,7 @@ describe("爬虫", () => {
   });
 
   it("get 方法测试", async () => {
-    const crawler = new BaseCrawler({ max: 10, request: {}, pages: [] });
+    const crawler = new Crawler({ max: 10, request: {}, pages: [] });
 
     crawler.on("onParserField", (option, callback) => {
       // console.log("onParserField option", option);

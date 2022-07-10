@@ -1,16 +1,22 @@
 import { app as electronApp, BrowserWindow } from "electron";
 import { createPool } from "generic-pool";
 import { app, KoaErrors, LogLevels } from "koa-micro-ts";
-import { isString } from "lodash-es";
+import { defaultsDeep, isString } from "lodash-es";
+import { resolve } from "path";
 
 import { asyncHtml, initElectronContent } from "../async";
 import { queryParser } from "../helper";
-import { AsyncElectronOption } from "../typings";
+import { AsyncElectronOption, ServerOption } from "../typings";
 
 export const createRouter = () => {};
 
-export const createServer = async (max = 10, port: number = 4445) => {
-  const pool = createPool({ create: async () => [], destroy: async () => {} }, { max });
+export const createServer = async (_option: Partial<ServerOption>) => {
+  const option: ServerOption = defaultsDeep(_option, {
+    max: 10,
+    port: 3344,
+    static: resolve(__dirname, "..", "static")
+  } as ServerOption);
+  const pool = createPool({ create: async () => [], destroy: async () => {} }, { max: option.max });
   const browser = await initElectronContent();
 
   app.logger({ level: LogLevels.all });
@@ -19,10 +25,10 @@ export const createServer = async (max = 10, port: number = 4445) => {
   app.apiDoc = "/api/doc";
 
   // app.helmet();
-  app.cors();
+  // app.cors();
   app.catchErrors();
 
-  // app.static(resolve(__dirname, "..", "public"));
+  app.static(option.static);
 
   // Electron 获取网页异步源码返回
   // ------------------------------------------------------------------------------
@@ -77,12 +83,12 @@ export const createServer = async (max = 10, port: number = 4445) => {
   // ------------------------------------------------------------------------------
 
   app.gracefulShutdown({ finally: () => app.log.info("Server gracefully terminated") });
-  app.start(port);
-  app.log.info(`服务启动, Url: http://localhost:${port}`);
+  app.start(option.port);
+  app.log.info(`服务启动, Url: http://localhost:${option.port}`);
 };
 
-export const startElectronService = () => {
-  createServer();
+export const startElectronService = (option: ServerOption) => {
+  createServer(option);
   electronApp.on("ready", () => {
     // 避免后台直接挂掉
     new BrowserWindow({ show: false });
