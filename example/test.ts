@@ -1,38 +1,33 @@
-import { DataParser } from "../src/typings";
+import axios from "axios";
 
-const getItemChildren = (option: DataParser[]): any => {
-  return option.reduce((pre, cur) => {
-    const { name, children, ...option } = cur;
-    if (!name) return pre;
-    const result: any = { option };
-    if (children && children.length > 0) {
-      result.next = getItemChildren(children);
-    }
-    pre[name] = result;
-    return pre;
-  }, {});
-};
+/** 关闭雷神时间 */
+async function stop() {
+  const result = await axios.post("https://webapi.leigod.com/wap/login/bind", {
+    code: "",
+    country_code: 86,
+    lang: "zh_CN",
+    src_channel: "guanwang",
+    user_type: "0",
+    /** 用户名称 */
+    username: "18328585637",
+    /** 秘密经过特殊加密 */
+    password: "b3069994a94093b1847b36c2b212792c"
+  });
 
-const result1 = getItemChildren([
-  {
-    name: "list-1",
-    parent: "",
-    children: [
-      {
-        name: "list-2",
-        parent: "",
-        children: [
-          {
-            name: "list-3",
-            parent: "",
-            children: [
-              { name: "sdf1", parent: "", children: [] },
-              { name: "21312", parent: "", children: [] }
-            ]
-          }
-        ]
-      }
-    ]
+  if (result.data?.msg !== "成功") {
+    throw new Error(`登录失败: ${result.data?.msg}`);
   }
-]);
-const targetObj = "list-1.list-2.list-3".split(".").reduce((pre, key) => pre[key]?.next, result1);
+
+  const token = result.data.data.login_info.account_token;
+
+  const { data } = await axios.post("https://webapi.leigod.com/api/user/pause", {
+    account_token: token,
+    lang: "zh_CN"
+  });
+
+  console.log(data.msg);
+}
+
+// 0 0 0,6,12,18 * * * *
+// 0 0 10,14,16 * * * *
+stop();

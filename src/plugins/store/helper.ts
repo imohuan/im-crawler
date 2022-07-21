@@ -1,8 +1,17 @@
-import { get, isArray, isObject, isString } from "lodash-es";
+import { defaultsDeep, get, isArray, isObject, isString } from "lodash-es";
 
 import { md5 } from "../../helper";
 import { TableColumn } from "../../helper/store";
 import { DataParser, MatchOption } from "../../typings";
+
+/** 获取URL的md5名称 */
+export function getUrlName(url: string) {
+  return md5(url);
+}
+
+export function getColumnNextName(name: string) {
+  return `__${name}_id`;
+}
 
 /** 获取不同的名称 */
 export function getName(
@@ -17,7 +26,7 @@ export function getName(
       tableName: undefined;
       storeName: string;
     } {
-  const urlName = md5(url, 10);
+  const urlName = getUrlName(url);
   const pageName = matchOption?.["__parent"]?.name;
   const tableName = matchOption?.name;
   const storeName = `${pageName}-${tableName}`;
@@ -30,7 +39,7 @@ export function getName(
  * 获取配置文件生成表的字段
  * @param option 配置
  */
-export function getTableColumns(option: MatchOption): TableColumn[] {
+export function getTableColumns(option: MatchOption) {
   // 获取option中 merger 属性 { merger: "list" }
   const merger = get(option, "merger", true);
   /**
@@ -80,20 +89,25 @@ export function getTableColumns(option: MatchOption): TableColumn[] {
       ...targetObj[key]?.option
     }));
   }
-  const targetNames: string[] = [];
-  const result = parsers
-    .filter((parser) => parser?.name && !parser?.hidden)
-    .map((parser) => {
-      if (parser.target) targetNames.push(parser.name!);
-      return {
-        name: parser.name,
-        type: get(parser, "type", "string"),
-        unique: get(parser, "unique", false),
-        increments: get(parser, "increments", false)
-      } as TableColumn;
+  parsers = parsers.filter((parser) => parser?.name && !parser?.hidden);
+
+  const uniques: string[] = [];
+  const nextKeys: string[] = [];
+
+  const columns = parsers.map((parser) => {
+    const { name, type, unique, increments } = defaultsDeep(parser, {
+      type: "string",
+      unique: false,
+      increments: false
     });
-  result.push(...targetNames.map((name) => ({ name: `__${name}` })));
-  return result;
+    if (parser.target) nextKeys.push(name);
+    if (unique) uniques.push(name);
+    return { name, unique: false, type, increments } as TableColumn;
+  });
+  columns.push(...nextKeys.map((name) => ({ name: getColumnNextName(name) })));
+  columns.push({ name: "id", type: "string", unique: false });
+  const keys: string[] = columns.map((item) => item.name);
+  return { keys, nextKeys, uniques, columns };
 }
 
 /** 获取配置文件对应表的值 */

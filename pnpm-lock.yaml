@@ -2,7 +2,7 @@ lockfileVersion: 5.4
 
 specifiers:
   '@imohuan/aria2c': 0.0.1
-  '@imohuan/log': ^0.0.3
+  '@imohuan/log': ^0.0.4
   '@types/download': ^8.0.1
   '@types/fs-extra': ^9.0.13
   '@types/lodash-es': ^4.17.6
@@ -26,11 +26,13 @@ specifiers:
   fs-extra: ^10.1.0
   generic-pool: ^3.8.2
   iconv-lite: ^0.6.3
-  im-selector: ^0.0.6
+  im-selector: ^0.0.7
   ioredis: ^5.1.0
   knex: ^2.1.0
   koa-micro-ts: ^3.3.1
+  lodash: ^4.17.21
   lodash-es: ^4.17.21
+  minimist: ^1.2.6
   mitt: ^3.0.0
   nodemon: ^2.0.16
   prettier: ^2.6.2
@@ -47,7 +49,7 @@ specifiers:
 
 dependencies:
   '@imohuan/aria2c': 0.0.1
-  '@imohuan/log': 0.0.3
+  '@imohuan/log': 0.0.4
   axios: 0.27.2
   axios-retry: 3.3.1
   chalk: 4.1.2
@@ -55,7 +57,7 @@ dependencies:
   electron: 19.0.7
   generic-pool: 3.8.2
   iconv-lite: 0.6.3
-  im-selector: 0.0.6
+  im-selector: 0.0.7
   ioredis: 5.1.0
   knex: 2.1.0_sqlite3@5.0.8
   koa-micro-ts: 3.3.1
@@ -83,7 +85,9 @@ devDependencies:
   eslint-plugin-prettier: 4.0.0_nguwan5pqsajixjz57ffz7bkde
   eslint-plugin-vue: 9.1.1_eslint@8.17.0
   fs-extra: 10.1.0
+  lodash: 4.17.21
   lodash-es: 4.17.21
+  minimist: 1.2.6
   nodemon: 2.0.16
   prettier: 2.7.0
   rollup: 2.75.6
@@ -179,8 +183,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@imohuan/log/0.0.3:
-    resolution: {integrity: sha512-QuqcaSVUXyf7qbdDhzUkfB3iJN8wBKSJe3i6Dybd3ii9GEqy5sNTmS5U2cpYIH9Pn+FVk0bD3nxEHMbhbocMXw==}
+  /@imohuan/log/0.0.4:
+    resolution: {integrity: sha512-3riFTFxggyLnWevgs5qex+XOg1pwUbkTh5pBXKxQlL0L2+8fjQ/nG1trkROWtSjSuDuKorm87/qe42svBFQkyg==}
     dependencies:
       chalk: 4.1.2
       moment: 2.29.3
@@ -2635,8 +2639,8 @@ packages:
     engines: {node: '>= 4'}
     dev: true
 
-  /im-selector/0.0.6:
-    resolution: {integrity: sha512-zrxeBWqbJdEhmMYEEkj7PLFeSko5q/VgEgLVEQejtkOKInNLrxkxXvvsPe9/mgnT7WafMKEkRuZ6B1wpA2GBaA==}
+  /im-selector/0.0.7:
+    resolution: {integrity: sha512-75T+tz4769gfi67lvJlVDAjlAsFSswJ3gwd2Dd8mb4tFmGke/tuYOsor5qD+tzN/84cPa40sX7+YKSZGQ8Cq/g==}
     dependencies:
       chalk: 4.1.2
       cheerio: 1.0.0-rc.11

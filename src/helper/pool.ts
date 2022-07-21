@@ -20,12 +20,15 @@ export class SamplePool {
     });
   }
 
-  async clear(cb?: Function) {
-    this.pool.drain().then(() => {
-      try {
-        cb && cb();
-      } catch {}
-      this.pool.clear();
+  clear(cb?: Function): Promise<any> {
+    return new Promise((_resolve) => {
+      this.pool.drain().then(async () => {
+        try {
+          cb && (await cb());
+        } catch {}
+        await this.pool.clear();
+        _resolve(true);
+      });
     });
   }
 }

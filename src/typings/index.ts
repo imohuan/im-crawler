@@ -2,7 +2,7 @@ import { AxiosRequestConfig } from "axios";
 import { Options as PoolOption } from "generic-pool";
 import { HTMLSelectorOption, JSONSelectorOption } from "im-selector";
 
-import { setOption } from "@imohuan/log";
+import { setOption, Logger } from "@imohuan/log";
 
 import { AsyncElectronOption } from "./async";
 
@@ -123,6 +123,28 @@ export interface CrawlerOption {
   search: SearchOption;
   /** 用户Page页，配置 */
   pages: Page[];
+  /** 循环的大小 */
+  cycleLen: number;
   /** ... */
   [key: string]: any;
 }
+
+export interface ParseURL {
+  host: string;
+  port: string;
+  href: string;
+  origin: string;
+  search: string;
+  protocol: string;
+  username: string;
+  hash: string;
+  password: string;
+  pathname: string;
+  hostname: string;
+  searchParams: URLSearchParams;
+}
+
+export type Global = {
+  option: CrawlerOption;
+  log: Logger;
+};

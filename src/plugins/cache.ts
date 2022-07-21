@@ -1,13 +1,18 @@
 import { ensureFileSync, existsSync, readFileSync, writeFileSync } from "fs-extra";
-import { createPool } from "generic-pool";
 import IoRedis from "ioredis";
+import { isString } from "lodash-es";
 import { resolve } from "path";
 
-import { UserPlugin } from "../typings";
 import { md5, urlName } from "../helper";
-import { isString } from "lodash-es";
+import { SamplePool } from "../helper/pool";
+import { UserPlugin } from "../typings";
 
-export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest, onDestroy }) => {
+function checkContent(content: any): boolean {
+  if (!content || content === "false" || content.trim().length <= 10) return false;
+  return true;
+}
+
+export const CacheRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest, onDestroy }) => {
   const redis = new IoRedis();
   const day = 60 * 60 * 24;
   const getKey = (data: any) => md5(data, 10);
@@ -23,7 +28,8 @@ export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest
     if (!request.cache) return;
     // 默认过期天数为 1 天
     const content = request.content;
-    await redis.set(getKey(request.url), content!, "EX", day);
+    const isOk = checkContent(content);
+    isOk && (await redis.set(getKey(request.url), content!, "EX", day));
   });
 
   onDestroy(async () => {
@@ -31,8 +37,11 @@ export const FileRedisPlugin: UserPlugin = (_, { onBeforeRequest, onAfterRequest
   });
 };
 
-export const FileFsPlugin: UserPlugin = (crawler, { onBeforeRequest, onAfterRequest }) => {
-  const pool = createPool({ create: async () => [], destroy: async () => {} }, { max: 30 });
+export const CacheFsPlugin: UserPlugin = (
+  crawler,
+  { onBeforeRequest, onAfterRequest, onDestroy }
+) => {
+  const pool = new SamplePool(30);
   const resolveFilePath = (url: any) =>
     resolve(crawler.option.dirname, "html", urlName(url, ".html"));
 
@@ -41,20 +50,25 @@ export const FileFsPlugin: UserPlugin = (crawler, { onBeforeRequest, onAfterRequ
     const filepath = resolveFilePath(request.url);
     if (existsSync(filepath)) {
       const content = readFileSync(filepath).toString();
-      if (content.length > 0) request.content = content;
+      if (content.length > 10) request.content = content;
     }
   });
 
   onAfterRequest(async (request) => {
     if (!request?.cache) return;
     const filepath = resolveFilePath(request.url);
-    pool.acquire().then(async (client) => {
+    pool.run(async () => {
       ensureFileSync(filepath);
+      let content: any = request.content;
       try {
-        if (!isString(request.content)) writeFileSync(filepath, JSON.stringify(request.content));
-        else writeFileSync(filepath, request.content!);
+        if (!isString(request.content)) content = JSON.stringify(request.content);
       } catch {}
-      pool.release(client);
+      const isOk = checkContent(content);
+      isOk && writeFileSync(filepath, content);
     });
+  });
+
+  onDestroy(async () => {
+    await pool.clear();
   });
 };

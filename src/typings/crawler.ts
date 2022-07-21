@@ -1,8 +1,8 @@
 import { EmitterEvent, getSelector } from "im-selector";
 
 import { Crawler } from "../core";
+import { ParseURL } from "../typings";
 import { CrawlerOption, HttpRequest, MatchOption } from "./index";
-import { Page } from "../typings";
 
 export type Event = { [key: string]: (...args: any[]) => any };
 export type PluginOptionArgs<T extends Event> = {
@@ -11,10 +11,10 @@ export type PluginOptionArgs<T extends Event> = {
 export type PluginFunction<T extends Event> = (_this: Crawler<any>, cb: PluginOptionArgs<T>) => any;
 
 /** 爬虫解析全局数据 */
-export type Global<T> = {
+export type GlobalData<T> = {
   request: HttpRequest;
   matchOption: MatchOption;
-} & URL &
+} & ParseURL &
   T;
 
 /** Get 错误返回 */
@@ -26,13 +26,17 @@ export type GetResultSuccess<T = any> = {
   /** 请求内容 */
   content: string;
   /** Selector选择器实例 */
-  selector: ReturnType<typeof getSelector<Global<T>>>;
+  selector: ReturnType<typeof getSelector<GlobalData<T>>>;
   /** 匹配下一步URL列表 */
   targets: string[];
   /** 当前的爬出配置 */
   matchOption: MatchOption | undefined;
+  /** URL配置 */
+  urlOption: ParseURL;
   /** 返回内容 */
   result: any;
+  /** 是否缓存 */
+  isCache: boolean;
 };
 
 export type SpiderStatus = {
@@ -40,10 +44,14 @@ export type SpiderStatus = {
   current: number;
   /** 最大执行数 */
   count: number;
+  /** 失败次数 */
+  error: number;
   /** 爬取地址 */
   targets: Set<string>;
   /** 正在执行 */
   running: string[];
+  /** 其他 */
+  [keys: string]: any;
 };
 
 /** 插件配置 */
@@ -115,6 +123,6 @@ export type PluginOption = {
 export type UserPlugin = PluginFunction<PluginOption>;
 
 /** Spider缓存 */
-export type SpiderCache = {
+export interface SpiderCache {
   [key: string]: SpiderStatus;
-};
+}

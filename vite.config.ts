@@ -41,13 +41,13 @@ export default defineConfig(({ mode }) => {
 
   if (mode === "production") {
     /** https://github.com/qmhc/vite-plugin-dts/blob/HEAD/README.zh-CN.md */
-    // option.plugins!.push(
-    //   Dts({
-    //     outputDir: resolve(__dirname, "dist/types"),
-    //     skipDiagnostics: false,
-    //     logDiagnostics: true
-    //   })
-    // );
+    option.plugins!.push(
+      Dts({
+        outputDir: resolve(__dirname, "dist/types"),
+        skipDiagnostics: false,
+        logDiagnostics: true
+      })
+    );
   }
 
   return option;

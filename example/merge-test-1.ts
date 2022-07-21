@@ -82,6 +82,6 @@ const crawler = new Crawler({
   ]
 });
 
-crawler.use(StorePlugin);
+crawler.use(StorePlugin());
 // crawler.start("https://www.bilibili.com/");
 crawler.start("http://localhost:3344/index.html");

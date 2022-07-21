@@ -1,11 +1,8 @@
 import { createHash } from "crypto";
-import { get, isArray, isFunction, isObject, isString } from "lodash-es";
-/**
- * Url
- */
+import { get, isArray, isFunction, isObject, isString, set } from "lodash-es";
 import { extname, resolve } from "path";
-
 import { getSuffixForDir } from "@imohuan/aria2c";
+import { Global, ParseURL } from "../typings";
 
 /**
  * md5 加密
@@ -85,6 +82,45 @@ export function urlParser(option: URLParser) {
   return { ...urlOption, ext, category, outFile, name, categoryOutFile };
 }
 
+/** 延迟 */
 export function delay(timeout: number) {
   return new Promise((_resolve) => setTimeout(() => _resolve(true), timeout));
+}
+
+/** 补全URL */
+export function completionUrl(url: string, option: any = {}) {
+  if (!url || url.startsWith("javascript:void")) return false;
+  if (url.startsWith("//")) url = `https:${url}`;
+  if (url.startsWith("/")) url = `${option?.origin}${url}`;
+  return url;
+}
+
+/** 解析URL对象 */
+export function parseURL(_url: string): ParseURL {
+  const url = new URL(_url);
+  return {
+    host: url.host,
+    port: url.port,
+    href: url.href,
+    origin: url.origin,
+    search: url.search,
+    protocol: url.protocol,
+    username: url.username,
+    hash: url.hash,
+    password: url.password,
+    pathname: url.pathname,
+    hostname: url.hostname,
+    searchParams: url.searchParams
+  };
+}
+
+export function getGlobal(): Global;
+export function getGlobal<K extends keyof Global>(name?: K): Global[K];
+export function getGlobal<K extends keyof Global>(name?: K): Global | Global[K] {
+  if (name) return get(global, name, null) as Global[K];
+  return global as any as Global;
+}
+
+export function setGlobal<K extends keyof Global>(name: K, value: Global[K]): void {
+  set(global, name, value);
 }

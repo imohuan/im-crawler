@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import { createPool, Pool } from "generic-pool";
 import iconv from "iconv-lite";
 import { getSelector } from "im-selector";
@@ -17,20 +18,25 @@ import { resolve } from "path";
 
 import { Logger } from "@imohuan/log";
 
+import { completionUrl, parseURL, setGlobal } from "../helper";
 import axios from "../helper/axios";
+import { SamplePool } from "../helper/pool";
 import {
   CrawlerOption,
   Emitter,
   GetResultError,
   GetResultSuccess,
   Global,
+  GlobalData,
   HttpRequest,
   MatchOption,
-  Page,
   PluginFunction,
   PluginOption,
-  SpiderCache
+  SpiderCache,
+  SpiderStatus
 } from "../typings";
+
+import { CycleLog } from "../helper/cycle-log";
 
 export class Crawler<T> {
   /** 日志 */
@@ -41,6 +47,9 @@ export class Crawler<T> {
   private pool: Pool<any>;
   /** 是否进行了init */
   private isInit: boolean;
+  private cycleLog: CycleLog;
+  private cycleLogLen: number;
+  private cycleLogList: string[];
 
   /** 安装的插件 */
   private plugins: PluginOption[];
@@ -49,6 +58,8 @@ export class Crawler<T> {
 
   /** 缓存Spider的当前状态 */
   private spiderCache: SpiderCache;
+  private spiderIsOver: boolean;
+  private poolOne: SamplePool;
 
   constructor(
     option: Partial<CrawlerOption> & Pick<CrawlerOption, "pages">,
@@ -59,19 +70,27 @@ export class Crawler<T> {
     this.emitter = mitt<PluginOption>();
     this.global = global;
     this.spiderCache = {};
+    this.spiderIsOver = false;
+    this.poolOne = new SamplePool(1);
+    this.cycleLog = new CycleLog();
+    this.cycleLogList = [];
     const cwd = option?.dirname ?? process.cwd();
     const defaultOption: Partial<CrawlerOption> = {
       max: 0,
+      cycleLen: 3,
       pool: { min: 1, max: 20 },
       spider: { max: 0 },
       asyncUrl: "http://localhost:4445/",
       dirname: cwd,
-      log: { label: "Crawler", dirname: resolve(cwd, "logs") },
+      log: { label: "Crawler", dirname: resolve(cwd, "logs"), console: false },
       request: { encode: true, cache: true }
     };
     this.option = defaultsDeep(option, defaultOption);
     this.log = new Logger(this.option.log);
+    setGlobal("option", this.option);
+    setGlobal("log", this.log);
     this.pool = createPool({ create: async () => [], destroy: async () => {} }, this.option.pool);
+    this.cycleLogLen = this.option.cycleLen;
   }
 
   /** 初始化 */
@@ -103,6 +122,27 @@ export class Crawler<T> {
     this.emitter.on(name, (args: any) => {
       if (isArray(args)) callback(...(args as any));
     });
+  }
+
+  private print(status: SpiderStatus, msg: string) {
+    const len = 15;
+    const totalProgress = `${status.current} / ${status.count}`;
+    const { downloadCurrent, downloadCount } = status;
+    const hasDownload = downloadCurrent && downloadCount;
+    this.cycleLogList.push(chalk.white.bold(msg));
+    this.cycleLogList = this.cycleLogList.slice(-this.cycleLogLen);
+
+    const msgs = [
+      chalk.blue.bold("【 Crawler 】"),
+      [chalk.green.bold("[进度]"), totalProgress.padEnd(len, " ")],
+      hasDownload ? [chalk.green.bold("[下载]"), totalProgress.padEnd(len, " ")] : [],
+      [chalk.red.bold("[失败]"), String(status.error).padEnd(len / 2, " ")]
+    ].flat();
+    this.cycleLog.print(
+      msgs.join(" "),
+      // this.cycleLog.progress({ current: status.current, total: status.count }),
+      ...this.cycleLogList
+    );
   }
 
   /**
@@ -162,17 +202,19 @@ export class Crawler<T> {
   }
 
   /** 获取 URL 对应的数据（HTML，JSON） */
-  protected async getUrlData(request: HttpRequest): Promise<string> {
+  protected async getUrlData(request: HttpRequest): Promise<{ content: string; isCache: boolean }> {
     await this.emit("onBeforeRequest", request);
     let content: any = get(request, "content", "");
+    let isCache = true;
     if (!(content && isString(content) && content.length > 0)) {
       if (request.async) content = await this.getUrlForAsync(request);
       else content = await this.getUrlForAxios(request);
+      isCache = false;
     }
     if (request?.resultEncode) content = iconv.encode(content, request.resultEncode).toString();
     request.content = content;
     await this.emit("onAfterRequest", request);
-    return content;
+    return { content, isCache };
   }
 
   /** 查询 匹配当前URL的配置 */
@@ -221,11 +263,14 @@ export class Crawler<T> {
         const startTime = new Date().getTime();
         this.log.info(`开始获取: ${url}`);
         // 1. 获取match's中匹配url的otion
-        const urlOption = new URL(url);
+        const urlOption = parseURL(url);
         /** 初始化 MatchOption 数据 */
 
         matchOption = this.getUrlMatchFirst(url, matchOption);
-        if (!matchOption) return resolve({ status: false, message: "获取页面对应爬虫配置失败！" });
+        if (!matchOption) {
+          this.pool.release(client);
+          return resolve({ status: false, message: "获取页面对应爬虫配置失败！" });
+        }
 
         // 2. 获取网页源码
         const request: HttpRequest = defaultsDeep(
@@ -235,16 +280,16 @@ export class Crawler<T> {
         );
 
         if (request?.encode && request?.url) request.url = encodeURI(request.url);
-        const content = await this.getUrlData(request);
+        const { content, isCache } = await this.getUrlData(request);
 
         if (!content || isEmpty(content)) {
-          this.log.warn(`获取页面数据失败！`);
-          resolve({ status: false, message: "获取页面数据失败！" });
+          this.pool.release(client);
+          return resolve({ status: false, message: `获取页面数据失败: ${url}` });
         }
 
         // 3. 解析数据
         const targets: string[] = [];
-        const selector = getSelector<Global<T>>(content, {
+        const selector = getSelector<GlobalData<T>>(content, {
           request,
           matchOption,
           ...urlOption,
@@ -259,9 +304,7 @@ export class Crawler<T> {
           // key value keys filterKeys data
           if (keys.indexOf("target") && get(itemOption, "target", false)) {
             let values = isArray(value) ? value : [value];
-            values = values
-              .filter((f) => f && isString(f))
-              .map((m) => (m.startsWith("/") ? `${urlOption.origin}${m}` : m));
+            values = values.filter((f) => f && isString(f)).map((m) => completionUrl(m, urlOption));
             targets.push(...values);
           }
           this.emit("onParserField", option, (callback: any) => callbacks.push(callback));
@@ -278,10 +321,14 @@ export class Crawler<T> {
             }
           });
         }
-        const resultData = { content, selector, matchOption, result, targets };
+        const resultData = { isCache, urlOption, content, selector, matchOption, result, targets };
         this.emit("onAfterParser", resultData);
         const endTimer = new Date().getTime() - startTime;
-        this.log.info(`解析结束: ${endTimer} ms | length: ${String(content).length} | ${url}`);
+        this.log.info(
+          `解析结束:`,
+          chalk.green.bold(isCache ? "缓存" : ""),
+          `${endTimer} ms | length: ${String(content).length} | ${url}`
+        );
         this.pool.release(client);
         resolve({ status: true, ...resultData });
       });
@@ -295,14 +342,38 @@ export class Crawler<T> {
 
     if (root) {
       id = Math.random().toString(36).slice(3, 13);
-      this.spiderCache[id] = { current: 0, count: 1, targets: new Set(), running: [] };
+      this.spiderCache[id] = {
+        current: 0,
+        count: 1,
+        targets: new Set(),
+        running: [],
+        error: 0
+      };
       this.spiderCache[id].targets.add(url);
       if (matchOption) await this.emit("onInitSpider", { url, matchOption });
     }
 
     const currentData = this.spiderCache[id];
+    this.print(currentData, [chalk.green.bold("[开始]"), chalk.blue.bold(url)].join(" "));
     const result = await this.get(url, matchOption);
-    if (!result.status) return this.log.error(result.message);
+
+    if (!result.status) {
+      currentData.error = currentData.error + 1;
+      await this.endSpider({ id, matchOption });
+      this.print(currentData, [chalk.red.bold("[失败]"), chalk.red.bold(result.message)].join(" "));
+      return this.log.error(result.message);
+    } else {
+      this.print(
+        defaultsDeep({ current: currentData.current + 1 }, currentData),
+        [
+          chalk.green.bold("[成功]"),
+          chalk.blue.bold("[缓存]"),
+          chalk.gray.bold(String(result.content.length).padEnd(8, " ")),
+          chalk.blue.bold(url)
+        ].join(" ")
+      );
+    }
+
     await this.emit("onStartSpider", { url, matchOption });
     const targets = result.targets;
     await this.emit("onBeforeTarget", targets);
@@ -331,21 +402,18 @@ export class Crawler<T> {
 
     /** 2. 过滤Targets----------------------------------------- */
     const _filterTargets = targets
-      .map((url) => {
-        if (!url || url.startsWith("javascript:void")) return false;
-        if (url.startsWith("//")) url = `https:${url}`;
-        if (url.startsWith("/")) url = `${result.matchOption?.origin}${url}`;
-        return url;
-      })
+      .map((url) => completionUrl(url, result.urlOption))
       .filter((url) => {
         if (!url) return false;
         if (!/https?:\/\/(.+)/.test(url)) return false;
         if (currentData.targets.has(url)) return false;
         return !!this.getUrlMatchFirst(url);
       }) as string[];
-
     const filterTargets = Array.from(new Set(_filterTargets));
     await this.emit("onAfterTarget", filterTargets);
+
+    /** 3. 进行下一步----------------------------------------- */
+    // 对当前页面的数据清除(这里控制当前spider正在执行的数量， 用于判断结束)
     await this.emit("onPipeSpider", {
       url,
       matchOption,
@@ -355,44 +423,64 @@ export class Crawler<T> {
       status: currentData
     });
 
-    /** 3. 进行下一步----------------------------------------- */
-    // 对当前页面的数据清除(这里控制当前spider正在执行的数量， 用于判断结束)
-    if (!root) {
-      const index = currentData.running.indexOf(url);
-      if (index !== -1) {
-        currentData.running.splice(index, 1);
-        currentData.current++;
-      }
-    }
-
     const max = this.option.spider.max;
+    const currentTargets = currentData.targets;
+
     for (let nextUrl of filterTargets) {
       if (max > 0 && currentData.count >= max) {
         currentData.targets = new Set();
+        this.log.warn("限制访问次数！");
         break;
       }
-      currentData.targets.add(nextUrl);
-      this._start(nextUrl, id);
-      currentData.running.push(nextUrl);
-      currentData.count++;
+
+      if (!currentTargets.has(nextUrl)) {
+        currentData.targets.add(nextUrl);
+        this._start(nextUrl, id);
+        currentData.running.push(nextUrl);
+        currentData.count++;
+      }
     }
 
-    if (currentData.running.length === 0) {
-      if (currentData.count >= max && max !== 0) this.log.warn("限制访问次数！");
-      const all = Object.keys(this.spiderCache).every(
-        (_id) => this.spiderCache[_id].running.length === 0
-      );
-      await this.emit("onEndSpider", { id, all, matchOption });
+    const index = currentData.running.indexOf(url);
+    if (index !== -1) {
+      currentData.running.splice(index, 1);
+      currentData.current = currentData.current + 1;
     }
+
+    await this.endSpider({ id, matchOption });
+    // this.log.info("进度: ", `${currentData.current + 1} / ${currentData.count}`);
     return true;
   }
 
+  private async endSpider(data: { id: string; matchOption: MatchOption }) {
+    return new Promise((_resolve) => {
+      this.poolOne.run(async () => {
+        const currentData = this.spiderCache[data.id];
+        if (currentData.running.length === 0) {
+          const all = Object.keys(this.spiderCache).every(
+            (_id) => this.spiderCache[_id].running.length === 0
+          );
+          if (all && this.pool.pending === 0) {
+            if (this.spiderIsOver) return _resolve(false);
+            this.spiderIsOver = true;
+          }
+          this.emit("onEndSpider", { ...data, all });
+          _resolve(true);
+        }
+        _resolve(false);
+      });
+    });
+  }
+
   start(url: string) {
+    this.spiderIsOver = false;
     this._start(url);
   }
 
   /** 结束 */
-  protected async destroy() {
+  async destroy() {
     await this.emit("onDestroy");
+    await this.pool.drain();
+    await this.poolOne.clear();
   }
 }

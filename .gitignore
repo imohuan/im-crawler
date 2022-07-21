@@ -1,4 +1,5 @@
 # Logs
+datas
 logs
 *.log
 npm-debug.log*
@@ -7,6 +8,7 @@ yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 
+example
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
